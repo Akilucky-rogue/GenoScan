@@ -2,7 +2,11 @@
 
 import { useEffect, useRef } from "react"
 
-export function DnaVisualizer() {
+interface DnaVisualizerProps {
+  sequenceData?: any
+}
+
+export function DnaVisualizer({ sequenceData }: DnaVisualizerProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -47,7 +51,39 @@ export function DnaVisualizer() {
       return sequence
     }
 
-    const dnaSequence = generateMockDNA(100)
+    // Process sequence data if available
+    const processSequenceData = () => {
+      if (!sequenceData) return generateMockDNA(100)
+
+      if (sequenceData.type === "fasta") {
+        // Process FASTA sequence
+        const sequence = sequenceData.sequences[0] || ""
+        return Array.from(sequence.substring(0, 100)).map((base, i) => {
+          // Randomly mark some bases as abnormal for visualization
+          const isAbnormal = i % 20 === 0
+          return { base, isAbnormal }
+        })
+      } else if (sequenceData.type === "vcf") {
+        // For VCF, we'll create a mock sequence but mark positions with variants as abnormal
+        const dnaSequence = generateMockDNA(100)
+
+        // Mark positions with variants as abnormal (simplified for demo)
+        if (sequenceData.variants && sequenceData.variants.length > 0) {
+          const variantPositions = sequenceData.variants.slice(0, 5).map((_: any, i: number) => i * 15 + 10)
+          variantPositions.forEach((pos: number) => {
+            if (dnaSequence[pos]) {
+              dnaSequence[pos].isAbnormal = true
+            }
+          })
+        }
+
+        return dnaSequence
+      }
+
+      return generateMockDNA(100)
+    }
+
+    const dnaSequence = processSequenceData()
 
     // Draw DNA visualization
     const drawDNA = () => {
@@ -67,10 +103,12 @@ export function DnaVisualizer() {
       const baseWidth = width / dnaSequence.length
       const baseHeight = 30
 
-      dnaSequence.forEach((base, i) => {
+      dnaSequence.forEach((base: any, i: number) => {
         const x = i * baseWidth
         const y = height / 2
-        const color = base.isAbnormal ? baseColors.abnormal : baseColors[base.base as keyof typeof baseColors]
+        const color = base.isAbnormal
+          ? baseColors.abnormal
+          : baseColors[base.base as keyof typeof baseColors] || "#999999"
 
         // Draw base
         ctx.fillStyle = color
@@ -100,7 +138,7 @@ export function DnaVisualizer() {
       })
 
       // Highlight abnormal regions
-      dnaSequence.forEach((base, i) => {
+      dnaSequence.forEach((base: any, i: number) => {
         if (base.isAbnormal) {
           const x = i * baseWidth
           const y = height / 2
@@ -129,7 +167,7 @@ export function DnaVisualizer() {
     return () => {
       window.removeEventListener("resize", handleResize)
     }
-  }, [])
+  }, [sequenceData])
 
   return (
     <div className="w-full h-[200px] bg-background rounded-md border">
