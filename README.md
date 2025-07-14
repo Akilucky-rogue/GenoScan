@@ -1,104 +1,134 @@
-# 🧬 GenomeScan
+```markdown
+<h1 align="center">🧬 GenomeScan</h1>
 
-**GenomeScan** is an innovative web-based platform designed to revolutionize DNA sequence analysis and accelerate the discovery of potential therapeutic strategies. It merges cutting-edge genomic analysis, variant interpretation, and computational drug design into a single, intuitive platform, aiming to provide comprehensive insights for researchers and clinicians.
+<p align="center">
+  <strong>Revolutionizing DNA sequence analysis with AI-powered therapeutic insights.</strong><br>
+  A next-gen genomic platform for researchers & clinicians.
+</p>
 
----
-
-## 🎯 Core Concept and Vision
-
-GenomeScan allows users to upload DNA sequence data, automatically detect genetic abnormalities or significant variants, and receive AI-driven suggestions for potential therapeutic interventions — all in a secure and user-friendly environment.
-
----
-
-## ⚙️ Key Components and Features
-
-### 1. 🔐 Secure Authentication and User Management
-- Login & registration system with session management
-- Protected routes via middleware
-- Future-ready user profile support
-
-### 2. 🧭 Intuitive Dashboard and Navigation
-- Central workspace for uploading data and reviewing results
-- Sidebar navigation to dashboard, history, reports, database, settings
-
-### 3. 📥 DNA Sequence Upload & Workflow
-- Supports FASTA & VCF files
-- Live file preview and validation
-- Simulated analysis process with status tracking
-- In-memory mock database (`lib/db.ts`) for managing analysis data
-
-### 4. 🔬 Visualization Components
-- **DNA Visualizer:** Linear/circular views, zoom, highlights, image export
-- **Variant Viewer:** Clinical significance filters, tabular + card views, ClinVar-style mock data
-- **Molecular Viewer:** Protein visualization (BRCA1/TP53), structure comparison, Ribbon/Surface modes
-
-### 5. 💊 Therapeutic Suggestion Engine
-- Categorized AI suggestions: Small molecules, Biologics, Gene therapies
-- Mock data includes mechanism, targets, and clinical phase
-- Clinical trials section with trial ID, phase, status, location, links
-
-### 6. 🔗 Mock Bioinformatics API Integration
-- Simulated services via `lib/api-services.ts`
-- BLAST, Variant analysis, Therapeutics (mock delay + static JSON)
-- Designed for future integration with real APIs (ClinVar, Ensembl, NCBI)
-
-### 7. 📄 Analysis Report
-- Summary of variants and treatment options
-- Simulated PDF report generation
+<p align="center">
+  <img src="https://img.shields.io/badge/Platform-Web-brightgreen?style=flat-square" />
+  <img src="https://img.shields.io/badge/Built%20With-Next.js-blueviolet?style=flat-square&logo=next.js" />
+  <img src="https://img.shields.io/badge/Language-TypeScript-3178C6?style=flat-square&logo=typescript" />
+  <img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square" />
+</p>
 
 ---
 
-## 🧰 Technical Stack
+## 🌟 Overview
 
-| Layer          | Tools & Libraries |
-|----------------|------------------|
-| Frontend       | Next.js (App Router), React, TypeScript |
-| UI & Styling   | Tailwind CSS, shadcn/ui, Lucide Icons |
-| Visualization  | Canvas API, Custom Components |
-| Data Handling  | Client-side mock DB (`lib/db.ts`) |
-| APIs (Mock)    | Bioinformatics services for BLAST, Variant analysis |
-| Deployment     | Vercel or local development with `npm run dev` |
+**GenomeScan** is a modern web-based platform that enables rapid detection of genetic abnormalities, variant interpretation, and AI-assisted therapy suggestions — transforming raw DNA into life-saving insights.
 
 ---
 
-## 🚧 Development Roadmap
+## 🎯 Core Vision
 
-### ✅ Phase 1 (Prototype)
-- Core UI + variant viewer + mock analysis
-- Secure routing + simulated DNA processing
-
-### 🔄 Phase 2 (Advanced)
-- Real API integration (BLAST, ClinVar)
-- More AI/ML insights
-- Advanced visualizations + charts
-
-### 🚀 Phase 3 (Product)
-- Full backend (Python/Go)
-- Regulatory compliance (HIPAA, GDPR)
-- Team features and export tools
+Empower genomic research and personalized healthcare by providing:
+- 🧪 Easy DNA upload & variant detection
+- 🧠 Smart therapeutic suggestions powered by AI
+- 📊 Visual tools for interpretation
+- 🔐 A secure, intuitive experience
 
 ---
 
-## ⚠️ Challenges & Opportunities
+## ⚙️ Features At-a-Glance
 
-- Security and privacy of DNA data
-- Regulation of AI-based clinical suggestions
-- Scalability for large datasets
-- Competitive advantage via unique therapeutic suggestion engine
+| 🔒 Secure Auth       | 🧬 DNA Upload & Preview | 🧠 AI Therapy Engine | 📈 Interactive Visuals |
+|----------------------|--------------------------|----------------------|-------------------------|
+| Login, signup, route protection | FASTA / VCF file support | Suggests treatments & clinical trials | DNA viewer, variant table, protein viewer |
 
 ---
 
-## 🤝 Contribution & Community
+## 🛠 Tech Stack
 
-We welcome collaborators passionate about computational biology, AI, or bioinformatics. Fork the repo and start contributing today.
+- **Framework:** Next.js (App Router), React 18
+- **Styling:** Tailwind CSS, shadcn/ui
+- **Language:** TypeScript
+- **Icons:** Lucide
+- **Mock Backend:** In-memory data with `lib/db.ts`
+- **Visualization:** HTML5 Canvas, SVG, UI primitives
+
+---
+
+## 🧩 Main Modules
+
+### 1. 🔐 Authentication
+- Login/Signup with secure session management
+- Middleware to protect dashboard routes
+
+### 2. 🧬 Sequence Upload
+- Supports `.fasta`, `.vcf`
+- File validation + preview
+- Simulated backend pipeline
+
+### 3. 📊 Visual Analysis
+- Circular & Linear DNA Visualizer
+- Variant Viewer: Filter by impact & category
+- Protein Viewer: Switch conformation, zoom, rotate
+
+### 4. 💊 AI Therapy Suggestions
+- Categorized by treatment type
+- Associated mock clinical trials
+- Downloadable PDF analysis reports
+
+---
+
+## 📦 Project Structure
+
+
+
+src/
+├── components/           # Visual modules (DNA viewer, variant cards)
+├── app/                  # Pages and routes
+├── lib/                  # Data mock services & DB
+└── styles/               # Tailwind configs
+
+
+
+---
+
+## 🚀 Quick Start
+
+```bash
+# Clone the project
+git clone https://github.com/your-username/genomescan.git
+cd genomescan
+
+# Install deps
+npm install
+
+# Start dev server
+npm run dev
+
+---
+
+## 🚧 Roadmap
+
+* ✅ Phase 1: Prototype UI with mock data
+* 🧠 Phase 2: Connect real APIs (ClinVar, Ensembl)
+* 🧬 Phase 3: Backend infrastructure, HIPAA/GDPR, export tools
+
+---
+
+## 📢 Join the Mission
+
+We're looking for collaborators in:
+
+* 🧠 Genomic Data Science
+* 💻 Full Stack Web Dev
+* 🔐 Privacy & Compliance
+
+Fork the repo, raise PRs, or suggest features!
 
 ---
 
 ## 📄 License
-MIT License
+
+This project is licensed under the MIT License.
 
 ---
 
 <p align="center">
-  Built with 🧠 + 🧬 to empower genomic medicine.
+  Made with ❤️, TypeScript & DNA for a healthier tomorrow.
 </p>
+```
