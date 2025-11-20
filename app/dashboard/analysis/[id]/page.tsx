@@ -13,6 +13,7 @@ import { EnhancedDnaVisualizer } from "@/components/enhanced-dna-visualizer"
 import { VariantViewer } from "@/components/variant-viewer"
 import { MolecularViewer } from "@/components/molecular-viewer"
 import { TherapeuticSuggestions } from "@/components/therapeutic-suggestions"
+import { VariantUploader } from "@/components/variant-uploader"
 import { getAnalysisById } from "@/lib/db"
 import { blastService, variantService, therapeuticService } from "@/lib/api-services"
 
@@ -58,9 +59,9 @@ export default function AnalysisDetailPage() {
         const variantData = await variantService.analyzeVariants(mockVariants)
         setVariantResults(variantData)
 
-        // Get therapeutic suggestions
-        const therapeuticData = await therapeuticService.getSuggestions(variantData)
-        setTherapeuticResults(therapeuticData)
+  // Get therapeutic suggestions
+  const therapeuticData = await therapeuticService.getSuggestions(variantData)
+  setTherapeuticResults(therapeuticData)
       } catch (error) {
         console.error("Error fetching API data:", error)
       }
@@ -237,7 +238,38 @@ export default function AnalysisDetailPage() {
             </TabsContent>
 
             <TabsContent value="therapeutics" className="p-4 pt-6">
-              <TherapeuticSuggestions />
+              <div className="space-y-4">
+                <VariantUploader
+                  onUpload={async (variants, sequence) => {
+                    // If variants parsed, post to suggestions; otherwise update sequence
+                    if (variants && variants.length) {
+                      setLoading(true)
+                      try {
+                        const res = await fetch('/api/suggestions', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ variants }),
+                        })
+                        const data = await res.json()
+                        if (data?.ok) {
+                          setTherapeuticResults(data.suggestions)
+                          setVariantResults(data.suggestions.enrichedVariants)
+                        }
+                      } catch (err) {
+                        console.error(err)
+                      } finally {
+                        setLoading(false)
+                      }
+                    }
+                    if (sequence) {
+                      // update visualizer sequence
+                      setAnalysis((a: any) => ({ ...a, sequenceData: sequence }))
+                    }
+                  }}
+                />
+
+                <TherapeuticSuggestions variants={variantResults} />
+              </div>
 
               <div className="mt-6">
                 <Card>

@@ -58,21 +58,25 @@ export function DnaVisualizer({ sequenceData }: DnaVisualizerProps) {
       if (sequenceData.type === "fasta") {
         // Process FASTA sequence
         const sequence = sequenceData.sequences[0] || ""
+        // Limit to 100 bases for visualization clarity
         return Array.from(sequence.substring(0, 100)).map((base, i) => {
-          // Randomly mark some bases as abnormal for visualization
-          const isAbnormal = i % 20 === 0
-          return { base, isAbnormal }
+          return { base, isAbnormal: false }
         })
       } else if (sequenceData.type === "vcf") {
         // For VCF, we'll create a mock sequence but mark positions with variants as abnormal
+        // Since VCF doesn't have the full sequence, we generate a background sequence
         const dnaSequence = generateMockDNA(100)
 
-        // Mark positions with variants as abnormal (simplified for demo)
+        // Mark positions with variants as abnormal
         if (sequenceData.variants && sequenceData.variants.length > 0) {
-          const variantPositions = sequenceData.variants.slice(0, 5).map((_: any, i: number) => i * 15 + 10)
-          variantPositions.forEach((pos: number) => {
-            if (dnaSequence[pos]) {
-              dnaSequence[pos].isAbnormal = true
+          sequenceData.variants.forEach((variant: any) => {
+            // Map large genomic positions to our 0-100 visualization window
+            // This is a simplified visualization mapping
+            const visualPos = variant.position ? variant.position % 100 : Math.floor(Math.random() * 100)
+            if (dnaSequence[visualPos]) {
+              dnaSequence[visualPos].isAbnormal = true
+              // Optional: Use the actual ref/alt if we wanted to be very specific, 
+              // but for this visualizer, just marking it is enough.
             }
           })
         }

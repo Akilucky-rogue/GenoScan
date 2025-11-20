@@ -85,14 +85,30 @@ export const variantService = {
 export const therapeuticService = {
   // Get therapeutic suggestions based on variants
   async getSuggestions(variants: any[]): Promise<any> {
-    // In a real implementation, this would call a drug database API
+    // Attempt to enrich variants with ML predictions (pathogenicityScore) using local model.
     console.log(`Getting therapeutic suggestions for ${variants.length} variants`)
 
-    // Simulate API delay
-    await new Promise((resolve) => setTimeout(resolve, 2000))
+    // Try dynamic import of the simple ML wrapper so this file still works if ML not present.
+    let enriched = variants
+    try {
+      // Dynamic import works with ESM and CJS test runners. If the module isn't
+      // present or fails to load, fall back to heuristics below.
+      const mlModule = await import("./ml")
+      const ml = (mlModule as any)
+      if (ml && typeof ml.predictVariants === "function") {
+        enriched = await ml.predictVariants(variants)
+      }
+    } catch (err) {
+      // if ML missing, fall back to heuristics
+      // log at debug level to avoid noisy errors in test output
+      // console.debug("ML predict not available, using heuristics", err)
+    }
 
-    // Return mock therapeutic suggestions
-    return {
+  // Simulate API delay (short)
+  await new Promise((resolve) => setTimeout(resolve, 400))
+
+    // Base mock suggestions
+    const base = {
       smallMolecules: [
         {
           id: "SM001",
@@ -104,6 +120,7 @@ export const therapeuticService = {
           references: [
             { pmid: "24567426", title: "Olaparib in patients with recurrent high-grade serous ovarian carcinoma" },
           ],
+          confidenceScore: 0.6,
         },
         {
           id: "SM002",
@@ -118,6 +135,7 @@ export const therapeuticService = {
               title: "Talazoparib in Patients with Advanced Breast Cancer and a Germline BRCA Mutation",
             },
           ],
+          confidenceScore: 0.55,
         },
       ],
       biologics: [
@@ -129,6 +147,7 @@ export const therapeuticService = {
           clinicalPhase: "Approved",
           indications: ["Breast cancer", "Gastric cancer"],
           references: [{ pmid: "11248153", title: "Use of chemotherapy plus a monoclonal antibody against HER2" }],
+          confidenceScore: 0.35,
         },
       ],
       geneTherapies: [
@@ -140,6 +159,7 @@ export const therapeuticService = {
           clinicalPhase: "Phase I",
           indications: ["Various cancers"],
           references: [{ pmid: "31802835", title: "CRISPR-Cas9 gene editing for cancer therapeutics" }],
+          confidenceScore: 0.25,
         },
       ],
       clinicalTrials: [
@@ -161,5 +181,33 @@ export const therapeuticService = {
         },
       ],
     }
+
+    // Adjust suggestion confidence using enriched variant pathogenicity scores when available
+    function adjust(list: any[]) {
+      return list.map((item) => {
+        try {
+          const genes = item.targetGenes ?? []
+          // compute average pathogenicity for variants matching target genes
+          const matched = enriched.filter((v: any) => (v.gene && genes.includes(v.gene)) || (v.gene && genes.includes(String(v.gene).toUpperCase())))
+          const avg = matched.length ? matched.reduce((s: number, v: any) => s + (v.pathogenicityScore ?? 0), 0) / matched.length : 0
+          // boost base confidence by avg*0.5
+          const newScore = Math.min(0.99, (item.confidenceScore ?? 0.4) + avg * 0.5)
+          const confidence = newScore > 0.7 ? "High" : newScore > 0.45 ? "Medium" : "Low"
+          return { ...item, confidenceScore: newScore, confidence }
+        } catch (err) {
+          return { ...item, confidence: "Unknown" }
+        }
+      })
+    }
+
+    const result = {
+      smallMolecules: adjust(base.smallMolecules),
+      biologics: adjust(base.biologics),
+      geneTherapies: adjust(base.geneTherapies),
+      clinicalTrials: base.clinicalTrials,
+      enrichedVariants: enriched,
+    }
+
+    return result
   },
 }

@@ -34,6 +34,14 @@ export default function LoginPage() {
         localStorage.setItem("isAuthenticated", "true")
         localStorage.setItem("user", JSON.stringify({ email }))
 
+        // Also set a cookie so the server-side middleware recognizes the session.
+        // This is a demo-friendly, non-httpOnly cookie. In production use secure, httpOnly cookies.
+        try {
+          document.cookie = `isAuthenticated=true; path=/; max-age=${60 * 60 * 24 * 7}` // 7 days
+        } catch (e) {
+          // ignore (server-side rendering environments won't have document)
+        }
+
         router.push("/dashboard")
       } else {
         setError("Please enter both email and password")

@@ -9,25 +9,19 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { Progress } from "@/components/ui/progress"
-import { FlaskRoundIcon as Flask, FileUp, AlertCircle, FileText, Download, LogOut, User } from "lucide-react"
+import { FlaskRoundIcon as Flask, AlertCircle, Download, LogOut, User, LayoutDashboard, FileText, Activity } from "lucide-react"
 import { DnaVisualizer } from "@/components/dna-visualizer"
 import { VariantTable } from "@/components/variant-table"
 import { TherapeuticSuggestions } from "@/components/therapeutic-suggestions"
-import { validateDnaFile, getFileType, parseFastaContent, parseVcfContent } from "@/lib/file-validation"
-import { createAnalysis, processDnaAnalysis, getAnalysisById } from "@/lib/db"
+import { createAnalysis } from "@/lib/db"
+import { VariantUploader } from "@/components/variant-uploader"
 
 export default function Dashboard() {
   const router = useRouter()
   const [user, setUser] = useState<{ email: string; name?: string } | null>(null)
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null)
-  const [fileValidation, setFileValidation] = useState<{ valid: boolean; error?: string }>({ valid: true })
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [analysisComplete, setAnalysisComplete] = useState(false)
-  const [analysisId, setAnalysisId] = useState<string | null>(null)
-  const [progress, setProgress] = useState(0)
   const [activeTab, setActiveTab] = useState("upload")
   const [sequenceData, setSequenceData] = useState<any>(null)
+  const [analysisComplete, setAnalysisComplete] = useState(false)
 
   // Check authentication on component mount
   useEffect(() => {
@@ -53,319 +47,281 @@ export default function Dashboard() {
     router.push("/auth/login")
   }
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0] || null
-    if (!file) return
-
-    // Validate the file
-    const validation = validateDnaFile(file)
-    setFileValidation(validation)
-
-    if (validation.valid) {
-      setUploadedFile(file)
-
-      // Parse file content based on type
+  const handleUploadComplete = async (variants: any[], sequence?: string) => {
+    if (sequence) {
+      // FASTA file
+      setSequenceData({ type: "fasta", sequences: [sequence] })
+      setAnalysisComplete(true)
+      setActiveTab("results")
+    } else if (variants) {
+      // VCF file - Run inference
       try {
-        const fileType = getFileType(file.name)
-        if (fileType === "fasta") {
-          const sequences = await parseFastaContent(file)
-          setSequenceData({ type: "fasta", sequences })
-        } else if (fileType === "vcf") {
-          const variants = await parseVcfContent(file)
-          setSequenceData({ type: "vcf", variants })
+        const inferRes = await fetch("/api/infer", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ variants }),
+        })
+
+        if (!inferRes.ok) {
+          throw new Error("Inference failed")
         }
+
+        const inferData = await inferRes.json()
+        setSequenceData({ type: "vcf", variants: inferData.results })
+        setAnalysisComplete(true)
+        setActiveTab("results")
+
+        // Log analysis
+        if (user?.email) {
+          createAnalysis(user.email, "Uploaded File", 0, "vcf")
+        }
+
       } catch (error) {
-        console.error("Error parsing file:", error)
-        setFileValidation({ valid: false, error: "Error parsing file content. Please check the file format." })
+        console.error("Inference error:", error)
+        // Handle error appropriately - maybe show a toast
       }
-    } else {
-      setUploadedFile(null)
     }
   }
 
-  const startAnalysis = async () => {
-    if (!uploadedFile || !user) return
-
-    setIsAnalyzing(true)
-    setProgress(0)
-
-    // Create analysis record in database
-    const analysis = createAnalysis(user.email, uploadedFile.name, uploadedFile.size, getFileType(uploadedFile.name))
-
-    setAnalysisId(analysis.id)
-
-    // Start processing the analysis
-    processDnaAnalysis(analysis.id)
-
-    // Simulate progress updates
-    const interval = setInterval(() => {
-      setProgress((prevProgress) => {
-        if (prevProgress >= 100) {
-          clearInterval(interval)
-          return 100
-        }
-        return prevProgress + 5
-      })
-    }, 300)
-
-    // Check analysis status periodically
-    const statusCheck = setInterval(() => {
-      const currentAnalysis = getAnalysisById(analysis.id)
-      if (currentAnalysis?.status === "completed") {
-        clearInterval(statusCheck)
-        clearInterval(interval)
-        setProgress(100)
-        setIsAnalyzing(false)
-        setAnalysisComplete(true)
-        setActiveTab("results")
-      }
-    }, 1000)
-  }
-
   const resetAnalysis = () => {
-    setUploadedFile(null)
-    setFileValidation({ valid: true })
-    setIsAnalyzing(false)
     setAnalysisComplete(false)
-    setAnalysisId(null)
-    setProgress(0)
     setActiveTab("upload")
     setSequenceData(null)
   }
 
   if (!user) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>
+    return (
+      <div className="flex justify-center items-center h-screen bg-background">
+        <div className="flex flex-col items-center gap-4">
+          <Flask className="h-10 w-10 text-primary animate-pulse" />
+          <p className="text-muted-foreground">Loading GenomeScan...</p>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <header className="px-4 lg:px-6 h-16 flex items-center border-b">
-        <Link href="/" className="flex items-center gap-2 font-semibold">
-          <Flask className="h-6 w-6 text-primary" />
-          <span>GenomeScan</span>
-        </Link>
-        <div className="ml-auto flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <User className="h-4 w-4 text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">{user.name || user.email}</span>
+    <div className="flex flex-col min-h-screen bg-muted/10">
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-16 items-center px-4">
+          <Link href="/" className="flex items-center gap-2 font-bold text-xl tracking-tight">
+            <div className="p-1.5 bg-primary/10 rounded-lg">
+              <Flask className="h-5 w-5 text-primary" />
+            </div>
+            <span>GenomeScan</span>
+          </Link>
+          <div className="ml-auto flex items-center gap-4">
+            <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-full">
+              <User className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">{user.name || user.email}</span>
+            </div>
+            <Button variant="ghost" size="sm" onClick={handleLogout} className="text-muted-foreground hover:text-destructive">
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
           </div>
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
         </div>
       </header>
-      <main className="flex-1 py-6 md:py-10">
-        <div className="container px-4 md:px-6">
-          <div className="flex flex-col space-y-4">
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">DNA Analysis Dashboard</h1>
-              <p className="text-muted-foreground">
-                Upload DNA sequences, analyze for abnormalities, and discover potential therapeutic strategies.
-              </p>
-            </div>
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="upload">Upload</TabsTrigger>
-                <TabsTrigger value="results" disabled={!analysisComplete}>
-                  Results
-                </TabsTrigger>
-                <TabsTrigger value="report" disabled={!analysisComplete}>
-                  Report
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="upload" className="mt-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Upload DNA Sequence</CardTitle>
-                    <CardDescription>
-                      Upload your DNA sequence file in FASTA (.fasta, .fa) or VCF (.vcf) format for analysis.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid gap-6">
-                      {!fileValidation.valid && (
-                        <Alert variant="destructive">
-                          <AlertCircle className="h-4 w-4" />
-                          <AlertDescription>{fileValidation.error}</AlertDescription>
-                        </Alert>
-                      )}
-                      <div className="flex flex-col items-center justify-center border-2 border-dashed rounded-lg p-12">
-                        <FileUp className="h-10 w-10 text-muted-foreground mb-4" />
-                        <p className="text-sm text-muted-foreground mb-2">
-                          Drag and drop your file here, or click to browse
-                        </p>
-                        <input
-                          type="file"
-                          id="file-upload"
-                          className="hidden"
-                          accept=".fasta,.fa,.vcf"
-                          onChange={handleFileUpload}
-                        />
-                        <label htmlFor="file-upload">
-                          <Button variant="outline" className="cursor-pointer">
-                            Browse Files
-                          </Button>
-                        </label>
-                      </div>
-                      {uploadedFile && (
-                        <div className="flex items-center gap-2 p-2 bg-muted rounded">
-                          <FileText className="h-5 w-5 text-primary" />
-                          <span className="text-sm font-medium">{uploadedFile.name}</span>
-                          <span className="text-xs text-muted-foreground ml-auto">
-                            {(uploadedFile.size / 1024).toFixed(2)} KB
-                          </span>
-                        </div>
-                      )}
-                      {sequenceData && (
-                        <div className="p-4 bg-muted rounded">
-                          <h3 className="text-sm font-medium mb-2">File Preview</h3>
-                          <div className="text-xs font-mono bg-background p-2 rounded max-h-32 overflow-auto">
-                            {sequenceData.type === "fasta" ? (
-                              <div>
-                                <p className="text-muted-foreground mb-1">FASTA Sequence:</p>
-                                {sequenceData.sequences.slice(0, 3).map((seq: string, i: number) => (
-                                  <p key={i}>{seq.substring(0, 50)}...</p>
-                                ))}
-                                {sequenceData.sequences.length > 3 && (
-                                  <p className="text-muted-foreground mt-1">
-                                    ...and {sequenceData.sequences.length - 3} more sequences
-                                  </p>
-                                )}
-                              </div>
-                            ) : (
-                              <div>
-                                <p className="text-muted-foreground mb-1">VCF Variants:</p>
-                                {sequenceData.variants.slice(0, 3).map((variant: any, i: number) => (
-                                  <p key={i}>
-                                    {variant.chrom}:{variant.pos} {variant.ref}&gt;{variant.alt}
-                                  </p>
-                                ))}
-                                {sequenceData.variants.length > 3 && (
-                                  <p className="text-muted-foreground mt-1">
-                                    ...and {sequenceData.variants.length - 3} more variants
-                                  </p>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                      {isAnalyzing && (
-                        <div className="space-y-2">
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm font-medium">Analyzing DNA sequence...</span>
-                            <span className="text-sm text-muted-foreground">{progress}%</span>
-                          </div>
-                          <Progress value={progress} className="h-2" />
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                  <CardFooter className="flex justify-between">
-                    <Button variant="outline" onClick={resetAnalysis} disabled={!uploadedFile && !analysisComplete}>
-                      Reset
-                    </Button>
-                    <Button onClick={startAnalysis} disabled={!uploadedFile || isAnalyzing || !fileValidation.valid}>
-                      {isAnalyzing ? "Analyzing..." : "Start Analysis"}
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </TabsContent>
-              <TabsContent value="results" className="mt-6 space-y-6">
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertTitle>Analysis Complete</AlertTitle>
-                  <AlertDescription>
-                    We've analyzed your DNA sequence and identified potential abnormalities.
-                  </AlertDescription>
-                </Alert>
-                <div className="grid gap-6 md:grid-cols-2">
-                  <Card>
+
+      <main className="flex-1 container py-8 px-4 md:px-6">
+        <div className="flex flex-col space-y-8 max-w-6xl mx-auto">
+          <div className="flex flex-col space-y-2">
+            <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+            <p className="text-muted-foreground text-lg">
+              Manage your DNA sequences and view analysis results.
+            </p>
+          </div>
+
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
+            <TabsList className="grid w-full grid-cols-3 lg:w-[400px] p-1 bg-muted/50">
+              <TabsTrigger value="upload" className="gap-2">
+                <LayoutDashboard className="h-4 w-4" />
+                Upload
+              </TabsTrigger>
+              <TabsTrigger value="results" disabled={!analysisComplete} className="gap-2">
+                <Activity className="h-4 w-4" />
+                Results
+              </TabsTrigger>
+              <TabsTrigger value="report" disabled={!analysisComplete} className="gap-2">
+                <FileText className="h-4 w-4" />
+                Report
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="upload" className="space-y-6 focus-visible:ring-0">
+              <div className="grid gap-6 lg:grid-cols-2">
+                <div className="space-y-6">
+                  <Card className="border-none shadow-lg bg-gradient-to-br from-background to-muted/20">
                     <CardHeader>
-                      <CardTitle>DNA Sequence Visualization</CardTitle>
-                      <CardDescription>Visual representation of the analyzed DNA sequence.</CardDescription>
+                      <CardTitle>Start New Analysis</CardTitle>
+                      <CardDescription>
+                        Upload your sequence data to begin. We support standard FASTA and VCF formats.
+                      </CardDescription>
                     </CardHeader>
                     <CardContent>
-                      <DnaVisualizer sequenceData={sequenceData} />
+                      <VariantUploader onUpload={handleUploadComplete} />
                     </CardContent>
                   </Card>
+
                   <Card>
                     <CardHeader>
-                      <CardTitle>Detected Variants</CardTitle>
-                      <CardDescription>List of genetic variants detected in the sequence.</CardDescription>
+                      <CardTitle className="text-base">Recent Activity</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      <VariantTable />
+                      <div className="text-sm text-muted-foreground text-center py-8">
+                        No recent analyses found. Upload a file to get started.
+                      </div>
                     </CardContent>
                   </Card>
                 </div>
-                <Card>
+
+                <div className="space-y-6">
+                  <Card className="bg-primary/5 border-primary/20">
+                    <CardHeader>
+                      <CardTitle className="text-primary">Why GenomeScan?</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex gap-3">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <Activity className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium">Advanced Variant Detection</h4>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Our algorithms identify pathogenic variants with high precision using the latest clinical databases.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                          <Flask className="h-4 w-4 text-primary" />
+                        </div>
+                        <div>
+                          <h4 className="font-medium">AI-Powered Insights</h4>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Get therapeutic suggestions tailored to specific genetic profiles, powered by our proprietary ML models.
+                          </p>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="results" className="space-y-6 focus-visible:ring-0">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <h2 className="text-2xl font-bold tracking-tight">Analysis Results</h2>
+                  <p className="text-muted-foreground">
+                    Found {sequenceData?.variants?.length || 0} variants in your sequence.
+                  </p>
+                </div>
+                <Button variant="outline" onClick={resetAnalysis}>
+                  New Analysis
+                </Button>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                <Card className="col-span-2 lg:col-span-1">
+                  <CardHeader>
+                    <CardTitle>Sequence Visualization</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <DnaVisualizer sequenceData={sequenceData} />
+                  </CardContent>
+                </Card>
+
+                <Card className="col-span-2 lg:col-span-1">
+                  <CardHeader>
+                    <CardTitle>Variant Table</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <VariantTable variants={sequenceData?.variants} />
+                  </CardContent>
+                </Card>
+
+                <Card className="col-span-2">
                   <CardHeader>
                     <CardTitle>Therapeutic Suggestions</CardTitle>
                     <CardDescription>
-                      AI-generated suggestions for potential therapeutic approaches based on detected variants.
+                      Potential treatments based on identified variants.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <TherapeuticSuggestions />
                   </CardContent>
                 </Card>
-              </TabsContent>
-              <TabsContent value="report" className="mt-6">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Analysis Report</CardTitle>
-                    <CardDescription>
-                      Comprehensive report of the DNA analysis results and therapeutic suggestions.
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-6">
-                      <div className="space-y-2">
-                        <h3 className="text-lg font-semibold">Summary</h3>
-                        <p className="text-sm text-muted-foreground">
-                          The analysis of the provided DNA sequence has identified 3 significant variants that may be
-                          associated with genetic abnormalities. Based on these findings, we've generated therapeutic
-                          suggestions that could potentially address these abnormalities.
+              </div>
+            </TabsContent>
+
+            <TabsContent value="report" className="focus-visible:ring-0">
+              <Card className="max-w-4xl mx-auto">
+                <CardHeader className="border-b bg-muted/20">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle>Clinical Analysis Report</CardTitle>
+                      <CardDescription>Generated on {new Date().toLocaleDateString()}</CardDescription>
+                    </div>
+                    <Button variant="outline" onClick={() => window.print()}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Export PDF
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-8 space-y-8">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold border-b pb-2">Executive Summary</h3>
+                    <p className="text-muted-foreground leading-relaxed">
+                      The analysis of the provided DNA sequence has identified {sequenceData?.variants?.length || 0} significant variants.
+                      Our AI-driven analysis suggests potential therapeutic interventions targeting these specific genetic markers.
+                    </p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold border-b pb-2">Key Findings</h3>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900/50">
+                        <h4 className="font-medium text-red-900 dark:text-red-300 mb-2">Pathogenic Variants</h4>
+                        <p className="text-sm text-red-700 dark:text-red-400">
+                          Identified {sequenceData?.variants?.filter((v: any) => v.significance === 'Pathogenic').length || 0} variants classified as pathogenic.
                         </p>
                       </div>
-                      <div className="space-y-2">
-                        <h3 className="text-lg font-semibold">Key Findings</h3>
-                        <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
-                          <li>Identified 3 pathogenic variants associated with known genetic disorders</li>
-                          <li>Found 2 variants of uncertain significance that require further investigation</li>
-                          <li>Detected 1 novel variant not previously documented in genomic databases</li>
-                        </ul>
-                      </div>
-                      <div className="space-y-2">
-                        <h3 className="text-lg font-semibold">Therapeutic Approaches</h3>
-                        <p className="text-sm text-muted-foreground">
-                          Based on the detected variants, our AI system has suggested several potential therapeutic
-                          approaches, including gene therapy, small molecule inhibitors, and CRISPR-based gene editing
-                          strategies.
-                        </p>
-                      </div>
-                      <div className="space-y-2">
-                        <h3 className="text-lg font-semibold">Recommendations</h3>
-                        <p className="text-sm text-muted-foreground">
-                          We recommend further validation of these findings through additional genomic testing and
-                          consultation with clinical genetics specialists. The therapeutic suggestions provided should
-                          be considered as starting points for further research and development.
+                      <div className="p-4 rounded-lg bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-900/50">
+                        <h4 className="font-medium text-yellow-900 dark:text-yellow-300 mb-2">Uncertain Significance</h4>
+                        <p className="text-sm text-yellow-700 dark:text-yellow-400">
+                          Found {sequenceData?.variants?.filter((v: any) => v.significance === 'Uncertain').length || 0} variants requiring further investigation.
                         </p>
                       </div>
                     </div>
-                  </CardContent>
-                  <CardFooter>
-                    <Button className="w-full" variant="outline">
-                      <Download className="h-4 w-4 mr-2" />
-                      Download Full Report (PDF)
-                    </Button>
-                  </CardFooter>
-                </Card>
-              </TabsContent>
-            </Tabs>
-          </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold border-b pb-2">Detailed Recommendations</h3>
+                    <ul className="space-y-3 text-sm text-muted-foreground">
+                      <li className="flex gap-2">
+                        <span className="font-medium text-foreground">1.</span>
+                        <span>Clinical validation of identified pathogenic variants is recommended.</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="font-medium text-foreground">2.</span>
+                        <span>Consider genetic counseling for findings related to hereditary conditions.</span>
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="font-medium text-foreground">3.</span>
+                        <span>Review suggested therapeutic options with a qualified healthcare provider.</span>
+                      </li>
+                    </ul>
+                  </div>
+                </CardContent>
+                <CardFooter className="bg-muted/20 border-t p-6">
+                  <p className="text-xs text-muted-foreground text-center w-full">
+                    This report is generated by GenomeScan AI for research purposes only. It is not a substitute for professional medical advice, diagnosis, or treatment.
+                  </p>
+                </CardFooter>
+              </Card>
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
     </div>

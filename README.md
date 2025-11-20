@@ -61,6 +61,18 @@ Empower genomic research and personalized healthcare by providing:
 - File validation + preview
 - Simulated backend pipeline
 
+### Large uploads & Busboy (optional)
+
+For production systems that accept large VCF/FASTA files, consider installing a streaming multipart parser such as `busboy` so uploads are processed without buffering the entire file in memory. In this repo the server will parse small multipart uploads in-memory (no extra dependency) for convenience and testability, but for large files or high throughput you should add `busboy` and enable the streaming path.
+
+Install (when ready):
+
+```powershell
+npm install busboy
+```
+
+After installation the server will automatically use the streaming parser when available.
+
 ### 3. 📊 Visual Analysis
 - Circular & Linear DNA Visualizer
 - Variant Viewer: Filter by impact & category
@@ -109,6 +121,69 @@ npm run dev
 * 🧬 Phase 3: Backend infrastructure, HIPAA/GDPR, export tools
 
 ---
+
+## 🧠 ML Quickstart (local PoC)
+
+This project includes a lightweight, dependency-free logistic-regression PoC model (in `lib/ml`) used to score variant pathogenicity. It's intentionally small so you can run and test locally without heavy native libraries.
+
+1. Train a synthetic model (produces `models/simple-model.json`):
+
+  - Open a Node REPL or run a small script to call `trainOnSynthetic()` from `lib/ml`.
+
+  Example (Node + ts-node or via a small one-off script):
+
+  ```js
+  // scripts/train.js (node)
+  const ml = require('../lib/ml')
+  ml.trainOnSynthetic().then(m => console.log('trained', m))
+  ```
+
+2. Start the Next.js dev server and call the inference endpoint:
+
+  - POST JSON to `/api/infer` with body `{ "variants": [ { "gene": "BRCA1", "impact": "HIGH", "af": 0.01 } ] }`
+  - The response will include `pathogenicityScore` for each variant.
+
+3. The therapeutic suggestions UI uses these scores to adjust suggestion confidence when the model is present.
+
+Notes:
+- This ML code is a PoC. For production-grade models, replace the simple model with a TF/PyTorch model served via a dedicated inference service or convert to ONNX/TensorFlow.js for node/browser inference.
+- If you prefer, I can add a training script, GitHub Actions for model training, or a Python microservice for heavier models—tell me which path you prefer.
+
+## 🧪 Optional: ML runtimes (ONNX / TensorFlow.js)
+
+If you want to run heavier models locally or in CI (ONNX or TensorFlow.js), follow these instructions.
+
+1) Install a runtime (choose one):
+
+- ONNX (onnxruntime-node):
+
+```powershell
+npm install onnxruntime-node
+```
+
+- TensorFlow.js (Node):
+
+```powershell
+npm install @tensorflow/tfjs-node
+```
+
+2) Verify the runtime (there's a helper script included):
+
+```powershell
+node scripts/check_ml_runtime.js
+```
+
+This script will try to require the runtimes and run a tiny sample operation. The CI is also configured to attempt installation of these optional dependencies and run the check (see `.github/workflows/ci.yml`).
+
+3) Adding a model
+
+- For ONNX: place your model at `models/model.onnx`. The code in `lib/ml/onnxAdapter.ts` will attempt to load `models/model.onnx` when `onnxruntime-node` is available.
+- For TFJS: save a TFJS model using the `tf.saveLayersModel` or similar form and load it in a small adapter (I can add a `lib/ml/tfjsAdapter.ts` on request).
+
+Notes & caveats:
+- Native runtimes increase CI build time and require native binaries; the CI job in this repo attempts installation but is tolerant (it won't fail the whole workflow if installation isn't possible).
+- For production, prefer a dedicated inference service (Python + optimized hardware) or containerized builds that include the runtime and model.
+
 
 ## 📢 Join the Mission
 

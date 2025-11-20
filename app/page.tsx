@@ -26,12 +26,15 @@ export default function Home() {
         </nav>
       </header>
       <main className="flex-1">
-        <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48">
-          <div className="container px-4 md:px-6">
+        <section className="w-full py-12 md:py-24 lg:py-32 xl:py-48 relative overflow-hidden">
+          <div className="absolute inset-0 -z-10 h-full w-full bg-white dark:bg-black bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px]">
+            <div className="absolute left-0 right-0 top-0 -z-10 m-auto h-[310px] w-[310px] rounded-full bg-primary/20 opacity-20 blur-[100px]"></div>
+          </div>
+          <div className="container px-4 md:px-6 relative z-10">
             <div className="grid gap-6 lg:grid-cols-[1fr_400px] lg:gap-12 xl:grid-cols-[1fr_600px]">
               <div className="flex flex-col justify-center space-y-4">
                 <div className="space-y-2">
-                  <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none">
+                  <h1 className="text-3xl font-bold tracking-tighter sm:text-5xl xl:text-6xl/none bg-clip-text text-transparent bg-gradient-to-r from-primary to-blue-600 dark:to-blue-400">
                     Advanced DNA Analysis & Therapeutic Insights
                   </h1>
                   <p className="max-w-[600px] text-muted-foreground md:text-xl">
@@ -41,7 +44,7 @@ export default function Home() {
                 </div>
                 <div className="flex flex-col gap-2 min-[400px]:flex-row">
                   <Link href="/dashboard">
-                    <Button size="lg" className="gap-1">
+                    <Button size="lg" className="gap-1 shadow-lg shadow-primary/20">
                       Get Started
                       <ArrowRight className="h-4 w-4" />
                     </Button>
@@ -54,10 +57,12 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex items-center justify-center">
-                <div className="relative h-[350px] w-full overflow-hidden rounded-xl bg-gradient-to-br from-primary/20 via-secondary/20 to-muted p-8 flex items-center justify-center">
-                  <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,white,transparent)]" />
+                <div className="relative h-[350px] w-full overflow-hidden rounded-xl border bg-background/50 backdrop-blur-sm p-8 flex items-center justify-center shadow-2xl">
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent" />
                   <div className="relative flex flex-col items-center text-center">
-                    <Flask className="h-16 w-16 text-primary mb-4" />
+                    <div className="h-20 w-20 rounded-full bg-primary/10 flex items-center justify-center mb-4 animate-pulse">
+                      <Flask className="h-10 w-10 text-primary" />
+                    </div>
                     <p className="text-xl font-semibold mb-2">DNA Analysis Platform</p>
                     <p className="text-sm text-muted-foreground max-w-[250px]">
                       Leveraging advanced algorithms to identify genetic variants and suggest therapeutic approaches
